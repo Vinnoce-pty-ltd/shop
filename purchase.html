@@ -1,0 +1,405 @@
+<?php
+$passPhrase = '';
+$data = [
+    'merchant_id' => '18253905',
+    'merchant_key' => 'eskzmi493f5a5',
+	'return_url' => 'succespay.html',
+    'cancel_url' => 'problempay.html',
+	'notify_url' => 'https://www.example.com/notify',
+	//buyer details
+	'fname' => 'Vuyo',
+    'lname' => 'Tsotsi',
+	'email' => 'sikhuliso@gmail.com',
+    'm_paymentid' => '0001',
+    'amount' => 'R100',
+	'item_name' => 'Product 1',
+    ...
+];
+?>
+
+<?php
+/**
+ * @param array $data
+ * @param null $passPhrase
+ * @return string
+ */
+function generateSignature($data, $passPhrase = null) {
+    // Create parameter string
+    $pfOutput = '';
+    foreach( $data as $key => $val ) {
+        if($val !== '') {
+            $pfOutput .= $key .'='. urlencode( trim( $val ) ) .'&';
+        }
+    }
+    // Remove last ampersand
+    $getString = substr( $pfOutput, 0, -1 );
+    if( $passPhrase !== null ) {
+        $getString .= '&passphrase='. urlencode( trim( $passPhrase ) );
+    }
+    return md5( $getString );
+}
+
+function dataToString($dataArray) {
+  // Create parameter string
+    $pfOutput = '';
+    foreach( $dataArray as $key => $val ) {
+        if($val !== '') {
+            $pfOutput .= $key .'='. urlencode( trim( $val ) ) .'&';
+        }
+    }
+    // Remove last ampersand
+    return substr( $pfOutput, 0, -1 );
+}
+
+function generatePaymentIdentifier($pfParamString, $pfProxy = null) {
+    // Use cURL (if available)
+    if( in_array( 'curl', get_loaded_extensions(), true ) ) {
+        // Variable initialization
+        $url = 'https://www.payfast.co.za/onsite/process';
+
+        // Create default cURL object
+        $ch = curl_init();
+
+        // Set cURL options - Use curl_setopt for greater PHP compatibility
+        // Base settings
+        curl_setopt( $ch, CURLOPT_USERAGENT, NULL );  // Set user agent
+        curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );      // Return output as string rather than outputting it
+        curl_setopt( $ch, CURLOPT_HEADER, false );             // Don't include header in output
+        curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
+        curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
+
+        // Standard settings
+        curl_setopt( $ch, CURLOPT_URL, $url );
+        curl_setopt( $ch, CURLOPT_POST, true );
+        curl_setopt( $ch, CURLOPT_POSTFIELDS, $pfParamString );
+        if( !empty( $pfProxy ) )
+            curl_setopt( $ch, CURLOPT_PROXY, $pfProxy );
+
+        // Execute cURL
+        $response = curl_exec( $ch );
+        curl_close( $ch );
+        echo $response;
+        $rsp = json_decode($response, true);
+        if ($rsp['uuid']) {
+            return $rsp['uuid'];
+        }
+    }
+    return null;
+}
+
+// Generate signature (see Custom Integration -> Step 2)
+$data["signature"] = generateSignature($data, $passPhrase);
+
+// Convert the data array to a string
+$pfParamString = dataToString($data);
+
+// Generate payment identifier
+$identifier = generatePaymentIdentifier($pfParamString);
+
+
+ 
+?>
+
+<html lang= "en">
+     <head> 
+		  <title style= "background-image: url('../images/light.png');"> Shop </title>
+	      <link rel="shortcut icon" href="../images/light.png">
+		 
+		  <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+		  
+		  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.7.16.min.js"></script>
+		  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous">
+  
+  <script src="https://www.payfast.co.za/onsite/engine.js"></script>
+  </head>
+  
+<body >
+
+<!-- Content start here -->
+<div class=" container-fluid w-100  bg-light rounded-bottom-2 h-100"  > 
+
+<br><br><br>
+
+<div class="row">
+  
+  <!--Order Details-->
+  <div class="col-sm-4 bg-light">
+    <div class="card bg-light" style="border-radius:0px 0px 0px 0px; border:none;">
+      <div class="card-body border-0">
+	  
+	  
+<div class="card text-white bg-white mb-3 border-0" style="border-radius:0px 0px 0px 0px">
+ 
+  <div class="card-body">
+  
+  
+    <h6 class="card-title" style="color:green;text-align:center;font-weight:bold;">Product 1</h6><hr  style="color:grey;text-align:center;font-weight:bold;">
+    <h3 class="card-text"  style="color:green;text-align:center;font-weight:bold;" id="price">R100 </h3>
+	
+  </div>
+</div>
+
+<div class="card text-white bg-white mb-3 border-0">
+  
+  <div class="card-body" id="hidePay">
+
+  	<center>  
+	
+	<form method="post" action="purchase.php">
+	<button type="button" class="btn "><img src="https://www.payfast.co.za/images/buttons/light-small-paynow.png" width="165" height="36" alt="Pay" title="Pay Now with PayFast" name="paynow" value="Pay Now"/></button>
+	</form>
+	<?php
+	
+	if(isset($_POST['paynow'])){
+	$data["signature"] =  generateSignature($data, $passPhrase);
+	
+	$pfParamString = dataToString($data);
+	
+	$identifier =  generatePaymentIdentifier($pfParamString);
+	
+	if($identifier !== null){
+	echo'<script type="text/javascript"> window.payfast_do_onsite_payment({"uuid":" '.$identifier.' "}); </script> ';
+	}
+	
+	}
+	
+	?>
+	
+	
+
+	</center>
+	
+	<hr  style="color:grey;text-align:center;font-weight:bold;">
+	<small class="card-text"  style="color:black;font-weight:bold;"><center><ion-icon name="lock-closed"></ion-icon> Payfast Secure Pay </center></small>
+	
+  </div>
+</div>
+  	  
+      </div>
+    </div>
+  </div>
+
+</div>
+
+   <!-- Content end here -->
+</div>
+
+<script>
+
+var idToken= null;
+
+var CUSTOMEPOCH = 1300000000000; // artificial epoch
+function generateRowId(shardId /* range 0-64 for shard/slot */) {
+  var ts = new Date().getTime() - CUSTOMEPOCH; // limit to recent
+  var randid = Math.floor(Math.random() * 512);
+  ts = (ts * 64);   // bit-shift << 6
+  ts = ts + shardId;
+  return (ts * 512) + randid;
+}
+var genID = generateRowId(4);
+
+var myTime = new Date();
+ 
+const queryString = window.location.search;
+const urlParams = new URLSearchParams(queryString);
+
+const price = urlParams.get("price");
+
+const fname = urlParams.get("fname");
+const lname = urlParams.get("lname");
+const email = urlParams.get("email");
+const cellphone = urlParams.get("cellphone");
+
+const receiver_fname = urlParams.get("receiver_fname");
+const receiver_lname = urlParams.get("receiver_lname");
+const receiver_cellphone = urlParams.get("receiver_cellphone");
+
+const receiver_snumb = urlParams.get("receiver_snumb");
+const receiver_sname = urlParams.get("receiver_sname");
+const receiver_suburban = urlParams.get("receiver_suburban");
+const receiver_town = urlParams.get("receiver_town");
+const receiver_province = urlParams.get("receiver_province");
+const receiver_pc = urlParams.get("receiver_pc");
+
+document.getElementById("firstname").innerHTML = fname +' '+ lname;
+document.getElementById("email").innerHTML = email;
+document.getElementById("cellphone").innerHTML = cellphone;
+document.getElementById("r_name").innerHTML = receiver_fname +' '+ receiver_lname;
+document.getElementById("r_number").innerHTML = receiver_cellphone;
+document.getElementById("r_address").innerHTML = receiver_snumb + ' ' + receiver_sname + ', '+ receiver_suburban + ', ' + receiver_town + ', ' + receiver_province +', '+ receiver_pc;
+
+document.getElementById("price").innerHTML = 'R'+price;
+
+//hide function
+function hidePayment(){
+
+if( price === null || fname === null || lname === null  || email === null || cellphone === null || receiver_snumb === null || receiver_sname === null || receiver_suburban === null || receiver_town === null || receiver_province === null || receiver_pc === null){
+window.location.href = '../dashboard.html' 
+}else{
+ var x = document.getElementById("hidePay");
+ x.style.display = "none";
+ 
+  var a = document.getElementById("dataInconsistent");
+ a.style.display = "none";
+ 
+  var b = document.getElementById("selectWine3");
+ b.style.display = "none";
+ 
+  var c = document.getElementById("infoProcessing");
+ c.style.display = "none";
+ 
+  var d = document.getElementById("successCmt");
+ d.style.display = "none";
+ }
+ 
+}
+
+function dataInconsistent(){
+  var a = document.getElementById("dataInconsistent");
+ a.style.display = "block";
+}
+
+function selectWine3(){
+  var b = document.getElementById("selectWine3");
+ b.style.display = "block";
+}
+
+ function infoProcessing(){
+   var c = document.getElementById("infoProcessing");
+ c.style.display = "block";
+ }
+ 
+ function successCmt(){
+   var d = document.getElementById("successCmt");
+ d.style.display = "block";
+ }
+
+
+function goBack() {
+  window.history.back();
+}
+
+//device information
+var getDeviceInfo = navigator.userAgent;
+
+//get device type
+ function getDeviceType() {
+  const ua = navigator.userAgent;
+ 
+  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+    return "tablet";
+  }
+  if ( /Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test( ua ) ) {
+    return "mobile";
+  }
+  return "desktop";
+}
+
+function showPayment(){
+
+if( document.getElementById("firstname").value ==='' || document.getElementById("email").value  ==='' || document.getElementById("cellphone").value  ==='' ||  document.getElementById("r_name").value  ==='' || document.getElementById("r_number").value  ==='' || document.getElementById("r_address").value  ===''  ) {
+dataInconsistent();
+
+//alert("The is inconsentency in the information provided. Please check and confirm your payment once again.");
+
+goBack();
+
+}
+
+
+   /* else if(  document.getElementById('wine_selector1').value === '' || document.getElementById('wine_selector2').value === ''   ){
+selectWine3();
+//alert("Please select 3 Wine Options for your Gift.");
+
+}*/
+
+else{
+
+auth();
+insertItem() ;
+  }
+ 
+}
+
+//database functions
+function auth(){
+
+      AWS.config.update({
+      region: "us-east-1",
+   });
+
+AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+              IdentityPoolId : 'us-east-1:5d17e1f4-07e6-43ca-8222-c56c764c517e',
+              Logins : {
+			  'cognito-idp.us-east-1.amazonaws.com/us-east-1_cV4wCyegY':idToken
+			 }
+      });
+}
+
+function insertItem() {
+
+var docClient = new AWS.DynamoDB.DocumentClient();
+
+    var params = {
+        TableName : "akhiwe_app",
+        Item: {
+		
+		 "email_address": "orderID-"+genID+"-"+myTime.getFullYear()+0+myTime.getMonth()+0+myTime.getDay(),
+           "action_date":  document.getElementById("email").innerHTML,
+			
+            "info":{
+			"giver_fname": document.getElementById("firstname").innerHTML ,
+			"giver_email": document.getElementById("email").innerHTML,
+			"giver_phone": document.getElementById("cellphone").innerHTML,
+			
+			"receiver_name": document.getElementById("r_name").innerHTML,
+			"receiver_number": document.getElementById("r_number").innerHTML,
+			"receiver_address": document.getElementById("r_address").innerHTML ,
+			
+			"time": String(myTime),
+			"status": "order-pending",
+			"device_info": getDeviceInfo,
+			 "device_type":getDeviceType(),
+			 
+			"product": {
+			 "Name": " The Sweet Living Room Scent"
+			 //"champagne": document.getElementById('wine_selector1').value
+			 // "maleperfume": document.getElementById('wine_selector2').value
+			 
+			  }
+			 
+			}			
+        }
+    };
+	
+    docClient.put(params, function(err, data) {
+        if (err) {
+		
+		infoProcessing();
+		//alert( "Unable to finalize order. Please connect with Support for assistance " + "\n" /*+ JSON.stringify(err, undefined, 2)*/ );
+        } else {
+		
+		successCmt();
+		//alert("Success");
+		
+		var x = document.getElementById("hidePay");
+         x.style.display = "block";
+		 
+		document.getElementById("confirmBtn").disabled = true;
+	 	 
+        }
+    });
+}
+
+
+</script>
+
+  <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+ <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js" integrity="sha384-W8fXfP3gkOKtndU4JGtKDvXbO53Wy8SZCQHczT5FMiiqmQfUpWbYdTil/SxwZgAN" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.min.js" integrity="sha384-skAcpIdS7UcVUC05LJ9Dxay8AXcDYfBJqt1CJ85S/CFujBsIzCIv+l9liuYLaMQ/" crossorigin="anonymous"></script>
+ 
+		 </body>
+
+	</html>
